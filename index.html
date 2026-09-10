@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>提案登録窓口</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F2F0EA; --ink:#1C2333; --muted:#6B6B63; --line:#DEDACE;
+    --gold:#B08D57; --green:#4C7A5E; --clay:#B4543A; --card:#FFFFFF;
+  }
+  html{ color-scheme: light only; background:var(--paper); }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:'Zen Kaku Gothic New', sans-serif; }
+  h1,h2{ font-family:'Shippori Mincho', serif; font-weight:700; margin:0; }
+  .wrap{ max-width:520px; margin:0 auto; padding:0 0 60px; }
+  header{ padding:24px 20px 18px; background:var(--ink); }
+  header h1{ font-size:19px; color:#FFFFFF; }
+  header .sub{ font-size:12px; color:#D8BE93; margin-top:5px; }
+
+  .tabs{ display:flex; border-bottom:1px solid var(--line); background:var(--card); }
+  .tab{ flex:1; text-align:center; padding:14px; font-size:13px; color:#4A4A44; cursor:pointer; }
+  .tab.active{ color:var(--ink); border-bottom:3px solid var(--gold); font-weight:700; background:#FBF6EC; }
+
+  form{ padding:20px; display:flex; flex-direction:column; gap:16px; }
+  label{ font-size:12px; color:var(--muted); display:block; margin-bottom:6px; }
+  input, textarea{ width:100%; padding:12px; border:1px solid var(--line); border-radius:4px; font-family:inherit; font-size:14px; background:var(--card); }
+  textarea{ min-height:100px; resize:vertical; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > div{ flex:1; }
+  .imgpreview{ width:100%; border-radius:4px; margin-top:8px; display:none; }
+
+  .type-btns{ display:flex; gap:8px; }
+  .type-btn{ flex:1; padding:12px 6px; border:1px solid var(--line); border-radius:4px; text-align:center; font-size:13px; cursor:pointer; background:var(--card); }
+  .type-btn.sel{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+  .cat-checks{ display:flex; flex-direction:column; gap:8px; }
+  .cat-check{ display:flex; align-items:center; gap:10px; padding:12px; border:1px solid var(--line); border-radius:4px; font-size:14px; cursor:pointer; }
+  .cat-check.sel{ border-color:var(--gold); background:#F8F1E4; }
+  .cat-check input{ width:auto; }
+
+  button.submit{ margin-top:6px; padding:15px; border:none; border-radius:4px; background:var(--ink); color:#fff; font-family:inherit; font-size:15px; cursor:pointer; }
+  button.submit:disabled{ opacity:.5; }
+  .notice{ font-size:12px; color:var(--green); text-align:center; display:none; }
+
+  .list{ padding:8px 16px 20px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-left:5px solid var(--muted); border-radius:3px; margin-bottom:12px; padding:14px 16px; }
+  .card.go{ border-left-color:var(--green); }
+  .card.no{ border-left-color:var(--clay); }
+  .card.mid{ border-left-color:var(--gold); }
+  .title{ font-family:'Shippori Mincho',serif; font-size:16px; margin-bottom:6px; }
+  .meta{ font-size:12px; color:var(--muted); }
+  a{ color:var(--gold-text, #8A6636); font-weight:600; }
+  .tag{ font-size:11px; padding:2px 8px; border-radius:20px; float:right; }
+  .tag.pending{ background:#ECE9E2; color:var(--muted); }
+  .tag.mid{ background:#F3E9D8; color:var(--gold); }
+  .tag.go{ background:#E4EEE8; color:var(--green); }
+  .tag.no{ background:#F3E3DD; color:var(--clay); }
+  .empty{ text-align:center; color:var(--muted); padding:60px 20px; font-size:13px; }
+  .type-label{ font-size:10px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="dealerTitle">提案登録窓口</h1>
+    <div class="sub">新商品・キャンペーン・お知らせなどをサロン幹部へ共有します</div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" id="tabForm" onclick="switchTab('form')">新規登録</div>
+    <div class="tab" id="tabStatus" onclick="switchTab('status')">ステータス確認</div>
+    <div class="tab" id="tabList" onclick="switchTab('list')">提案済み</div>
+  </div>
+
+  <form id="proposalForm">
+    <div>
+      <label>提案の種類</label>
+      <div class="type-btns" id="typeBtns">
+        <div class="type-btn sel" data-type="提案" onclick="selectType('提案')">提案(検討が必要)</div>
+        <div class="type-btn" data-type="情報共有" onclick="selectType('情報共有')">情報共有</div>
+        <div class="type-btn" data-type="お知らせ" onclick="selectType('お知らせ')">お知らせ</div>
+      </div>
+    </div>
+
+    <div>
+      <label>対象店舗(あてはまるものすべて)</label>
+      <div class="cat-checks" id="storeChecks">
+        <label class="cat-check" data-store="美容室"><input type="checkbox" value="美容室"> 美容室向け</label>
+        <label class="cat-check" data-store="ヘッドスパ専門店"><input type="checkbox" value="ヘッドスパ専門店"> ヘッドスパ専門店向け</label>
+      </div>
+    </div>
+
+    <div id="categoryArea">
+      <label>カテゴリー(あてはまるものすべて)</label>
+      <div class="cat-checks" id="catChecks">
+        <label class="cat-check" data-cat="新商品"><input type="checkbox" value="新商品"> 新商品</label>
+        <label class="cat-check" data-cat="キャンペーン"><input type="checkbox" value="キャンペーン"> キャンペーン</label>
+        <label class="cat-check" data-cat="課題解決商品"><input type="checkbox" value="課題解決商品"> お店の課題解決に沿った商品</label>
+      </div>
+    </div>
+
+    <div id="genreArea">
+      <label>商品ジャンル</label>
+      <select id="genre">
+        <option value="">選択してください</option>
+        <option value="カラー">カラー</option>
+        <option value="パーマ">パーマ</option>
+        <option value="トリートメント">トリートメント</option>
+        <option value="店販">店販</option>
+        <option value="縮毛矯正・ストレート">縮毛矯正・ストレート</option>
+        <option value="ヘッドスパ">ヘッドスパ</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+    <div>
+      <label>ご担当者名</label>
+      <input type="text" id="staffName" required placeholder="例)田中 太郎">
+    </div>
+    <div>
+      <label>宛先</label>
+      <select id="recipient">
+        <option value="全体">全体(幹部全員へのご提案)</option>
+      </select>
+    </div>
+    <div id="recipientMessageArea" style="display:none;">
+      <label>宛先へのメッセージ(任意)</label>
+      <textarea id="recipientMessage" placeholder="個別にお伝えしたい内容があればご記入ください"></textarea>
+    </div>
+    <div>
+      <label id="titleLabel">商品名・キャンペーン名</label>
+      <input type="text" id="title" required placeholder="例)〇〇トリートメント 新発売キャンペーン">
+    </div>
+    <div>
+      <label id="reasonLabel">提案の意義・理由</label>
+      <textarea id="reason" required placeholder="なぜ今回ご提案するのか、サロンにとってのメリットなどをご記入ください"></textarea>
+    </div>
+    <div id="priceRow">
+      <label>価格帯(未定の場合は空欄のままで構いません)</label>
+      <select id="price">
+        <option value="">未設定</option>
+        <option value="〜3,000円">〜3,000円</option>
+        <option value="3,001〜6,000円">3,001〜6,000円</option>
+        <option value="6,001〜9,000円">6,001〜9,000円</option>
+        <option value="9,001〜12,000円">9,001〜12,000円</option>
+        <option value="12,001〜15,000円">12,001〜15,000円</option>
+        <option value="15,001円以上">15,001円以上</option>
+      </select>
+
+      <label class="cat-check" style="margin-top:14px;" id="campaignCheckWrap">
+        <input type="checkbox" id="hasCampaign"> キャンペーン期間があります
+      </label>
+      <div class="row2" id="campaignDates" style="display:none; margin-top:10px;">
+        <div>
+          <label>開始日</label>
+          <input type="date" id="periodStart">
+        </div>
+        <div>
+          <label>終了日</label>
+          <input type="date" id="periodEnd">
+        </div>
+      </div>
+    </div>
+    <div>
+      <label>画像(商品写真・資料など)</label>
+      <input type="file" id="imageFile" accept="image/*">
+      <img class="imgpreview" id="imgPreview">
+    </div>
+    <div>
+      <label>参考URL(商品ページ・キャンペーン詳細など/任意)</label>
+      <input type="url" id="url" placeholder="https://example.com/product/123">
+    </div>
+    <button type="submit" class="submit" id="submitBtn">この内容で提案する</button>
+    <div class="notice" id="notice">送信しました。ご確認ありがとうございます。</div>
+  </form>
+
+  <div class="list" id="statusArea" style="display:none;"></div>
+  <div class="list" id="listArea" style="display:none;"></div>
+</div>
+
+<script>
+// ==== このファイルを複製したら、以下3行をディーラーごとに書き換える ====
+const DEALER_KEY  = 'dealer-kobayasikamoji';
+const DEALER_NAME = 'kobayasikamoji';
+const GAS_URL     = 'https://script.google.com/macros/s/AKfycbybNWscWj2DJIjRuE-sBav6iXyb7beUGvGO1U9w21GP28PCieSITyeUF9fMWBOHDrK1SA/exec';
+// ======================================================================
+
+document.getElementById('dealerTitle').textContent = DEALER_NAME + ' 様 専用窓口';
+
+let currentType = '提案';
+let selectedCats = [];
+let selectedStores = [];
+
+async function initRecipients(){
+  const res = await jsonp('listExecutives', {});
+  const sel = document.getElementById('recipient');
+  (res.executives || []).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name + ' 様(個別)';
+    sel.appendChild(opt);
+  });
+}
+initRecipients();
+
+document.getElementById('recipient').addEventListener('change', (e) => {
+  document.getElementById('recipientMessageArea').style.display = e.target.value === '全体' ? 'none' : 'block';
+});
+
+document.querySelectorAll('#storeChecks .cat-check input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    cb.closest('.cat-check').classList.toggle('sel', cb.checked);
+    selectedStores = Array.from(document.querySelectorAll('#storeChecks .cat-check input:checked')).map(i => i.value);
+  });
+});
+
+function selectType(type){
+  currentType = type;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('sel', b.dataset.type===type));
+  const isProposal = type === '提案';
+  document.getElementById('categoryArea').style.display = isProposal ? 'block' : 'none';
+  document.getElementById('genreArea').style.display = isProposal ? 'block' : 'none';
+  document.getElementById('priceRow').style.display = isProposal ? 'block' : 'none';
+  document.getElementById('titleLabel').textContent = isProposal ? '商品名・キャンペーン名' : 'タイトル';
+  document.getElementById('reasonLabel').textContent = isProposal ? '提案の意義・理由' : '詳細内容';
+}
+document.getElementById('hasCampaign').addEventListener('change', (e) => {
+  document.getElementById('campaignDates').style.display = e.target.checked ? 'flex' : 'none';
+});
+
+document.querySelectorAll('#catChecks .cat-check input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    cb.closest('.cat-check').classList.toggle('sel', cb.checked);
+    selectedCats = Array.from(document.querySelectorAll('#catChecks .cat-check input:checked')).map(i => i.value);
+  });
+});
+
+function jsonp(action, params){
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    window[cbName] = (data) => { resolve(data); delete window[cbName]; script.remove(); };
+    const qs = new URLSearchParams({ action, callback: cbName, ...params });
+    const script = document.createElement('script');
+    script.src = GAS_URL + '?' + qs.toString();
+    document.body.appendChild(script);
+  });
+}
+function post(action, payload){
+  return fetch(GAS_URL, {
+    method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, ...payload })
+  }).then(r => r.json());
+}
+
+function switchTab(tab){
+  document.getElementById('tabForm').classList.toggle('active', tab==='form');
+  document.getElementById('tabStatus').classList.toggle('active', tab==='status');
+  document.getElementById('tabList').classList.toggle('active', tab==='list');
+  document.getElementById('proposalForm').style.display = tab==='form' ? 'flex' : 'none';
+  document.getElementById('statusArea').style.display = tab==='status' ? 'block' : 'none';
+  document.getElementById('listArea').style.display = tab==='list' ? 'block' : 'none';
+  if (tab === 'status') loadStatusList();
+  if (tab === 'list') loadList();
+}
+
+let imageBase64 = '';
+document.getElementById('imageFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    imageBase64 = reader.result;
+    const prev = document.getElementById('imgPreview');
+    prev.src = imageBase64; prev.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('proposalForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (selectedStores.length === 0){
+    alert('対象店舗(美容室・ヘッドスパ専門店)を1つ以上選択してください');
+    return;
+  }
+  if (currentType === '提案' && selectedCats.length === 0){
+    alert('カテゴリーを1つ以上選択してください');
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = '送信中...';
+
+  let period = '';
+  if (document.getElementById('hasCampaign').checked) {
+    const s = document.getElementById('periodStart').value;
+    const en = document.getElementById('periodEnd').value;
+    period = (s || '未定') + '〜' + (en || '未定');
+  }
+
+  await post('submitProposal', {
+    dealerKey: DEALER_KEY,
+    dealerName: DEALER_NAME,
+    type: currentType,
+    categories: selectedCats,
+    targetStores: selectedStores,
+    genre: document.getElementById('genre').value,
+    staffName: document.getElementById('staffName').value,
+    recipient: document.getElementById('recipient').value,
+    recipientMessage: document.getElementById('recipientMessage').value,
+    title: document.getElementById('title').value,
+    reason: document.getElementById('reason').value,
+    price: document.getElementById('price').value,
+    period: period,
+    url: document.getElementById('url').value,
+    imageBase64: imageBase64,
+    imageName: document.getElementById('imageFile').files[0]?.name || ''
+  });
+
+  btn.disabled = false; btn.textContent = 'この内容で提案する';
+  document.getElementById('notice').style.display = 'block';
+  document.getElementById('proposalForm').reset();
+  document.getElementById('imgPreview').style.display = 'none';
+  document.querySelectorAll('#catChecks .cat-check').forEach(el => el.classList.remove('sel'));
+  document.querySelectorAll('#storeChecks .cat-check').forEach(el => el.classList.remove('sel'));
+  document.getElementById('campaignDates').style.display = 'none';
+  document.getElementById('recipientMessageArea').style.display = 'none';
+  selectedCats = [];
+  selectedStores = [];
+  imageBase64 = '';
+  selectType('提案');
+  setTimeout(() => { document.getElementById('notice').style.display = 'none'; }, 4000);
+});
+
+function statusInfo(p){
+  if (p.type !== '提案') return { cls:'', tag:'共有済み' };
+  if (p.status === '決定') return { cls:'go', tag:'採用決定:' + p.nextAction };
+  if (p.status === '見送り') return { cls:'no', tag:'見送りとなりました' };
+  if (p.status === '検討_アクション待ち') return { cls:'mid', tag:'検討中(方向調整中)' };
+  return { cls:'', tag:'確認待ち' };
+}
+
+function renderProposalCard(p){
+  const s = statusInfo(p);
+  const isPersonal = p.recipient && p.recipient !== '全体';
+  return `
+    <div class="card ${s.cls}">
+      <span class="tag ${s.cls || 'pending'}">${escapeHtml(s.tag)}</span>
+      <div class="type-label">[${escapeHtml(p.type)}]${p.targetStores ? ' 対象:' + escapeHtml(String(p.targetStores).split(',').join('・')) : ''}${isPersonal ? ' ・ 宛先:' + escapeHtml(p.recipient) + '様' : ''}</div>
+      <div class="title">${escapeHtml(p.title)}</div>
+      <div class="meta">${escapeHtml(p.price||'')}${p.price && p.period ? ' ・ ':''}${escapeHtml(p.period||'')}</div>
+      ${p.url ? `<div class="meta"><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">参考URLを開く</a></div>` : ''}
+      ${isPersonal && p.recipientReply ? `
+        <div class="meta" style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);">
+          <strong>${escapeHtml(p.recipient)}様からの返信:</strong> ${escapeHtml(p.recipientReply.judgment)}
+          ${p.recipientReply.message ? `<br>「${escapeHtml(p.recipientReply.message)}」` : ''}
+        </div>` : ''}
+      ${isPersonal && !p.recipientReply ? `<div class="meta" style="margin-top:8px;">${escapeHtml(p.recipient)}様からの返信をお待ちしています</div>` : ''}
+    </div>`;
+}
+
+async function loadStatusList(){
+  const res = await jsonp('listForDealer', { dealerKey: DEALER_KEY });
+  const list = (res.proposals || []).filter(p => p.type === '提案' && p.status !== '決定' && p.status !== '見送り');
+  const area = document.getElementById('statusArea');
+  if (list.length === 0){
+    area.innerHTML = '<div class="empty">現在、判断待ちの提案はありません。</div>';
+    return;
+  }
+  area.innerHTML = list.map(renderProposalCard).join('');
+}
+
+function isFinished(p){
+  if (p.type !== '提案') return true; // 情報共有・お知らせは判断不要のため常に完了扱い
+  return p.status === '決定' || p.status === '見送り';
+}
+
+async function loadList(){
+  const res = await jsonp('listForDealer', { dealerKey: DEALER_KEY });
+  const list = (res.proposals || []).filter(isFinished);
+  const area = document.getElementById('listArea');
+  if (list.length === 0){
+    area.innerHTML = '<div class="empty">まだ結果が出た提案はありません。</div>';
+    return;
+  }
+  area.innerHTML = list.map(renderProposalCard).join('');
+}
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>
