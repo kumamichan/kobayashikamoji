@@ -240,12 +240,22 @@ document.querySelectorAll('#catChecks .cat-check input').forEach(cb => {
 function jsonp(action, params){
   return new Promise((resolve) => {
     const cbName = 'cb_' + Math.random().toString(36).slice(2);
-    window[cbName] = (data) => { resolve(data); delete window[cbName]; script.remove(); };
+    let done = false;
+    const finish = (data) => {
+      if (done) return; done = true;
+      clearTimeout(timer); delete window[cbName]; script.remove(); resolve(data);
+    };
+    window[cbName] = (data) => finish(data);
     const qs = new URLSearchParams({ action, callback: cbName, ...params });
     const script = document.createElement('script');
+    script.onerror = () => finish({ success:false, error:'通信に失敗しました。時間をおいて再度お試しください。' });
+    const timer = setTimeout(() => finish({ success:false, error:'応答がありません(時間切れ)。時間をおいて再度お試しください。' }), 20000);
     script.src = GAS_URL + '?' + qs.toString();
     document.body.appendChild(script);
   });
+}
+function errorBoxHtml(msg){
+  return '<div class="empty" style="color:#97402A;">データを取得できませんでした。<br>' + escapeHtml(msg || '') + '</div>';
 }
 function post(action, payload){
   return fetch(GAS_URL, {
@@ -266,16 +276,43 @@ function switchTab(tab){
 }
 
 let imageBase64 = '';
-document.getElementById('imageFile').addEventListener('change', (e) => {
+let imageProcessing = false;
+
+// 写真は送信前に縮小(長辺1280px・JPEG)して、通信量と失敗を減らす
+function compressImage(file, maxSize, quality){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('unsupported image')); };
+    img.src = url;
+  });
+}
+
+document.getElementById('imageFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
+  const prev = document.getElementById('imgPreview');
+  imageBase64 = ''; prev.style.display = 'none';
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    imageBase64 = reader.result;
-    const prev = document.getElementById('imgPreview');
+  imageProcessing = true;
+  try {
+    imageBase64 = await compressImage(file, 1280, 0.82);
     prev.src = imageBase64; prev.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    alert('画像を読み込めませんでした。JPEGまたはPNGの画像をお選びください。');
+    e.target.value = '';
+  }
+  imageProcessing = false;
 });
 
 document.getElementById('proposalForm').addEventListener('submit', async (e) => {
@@ -288,6 +325,14 @@ document.getElementById('proposalForm').addEventListener('submit', async (e) => 
     alert('カテゴリーを1つ以上選択してください');
     return;
   }
+  if (imageProcessing){
+    alert('画像を処理中です。数秒待ってから、もう一度押してください。');
+    return;
+  }
+  if (document.getElementById('imageFile').files[0] && !imageBase64){
+    alert('画像を読み込めていません。画像を選び直してください。');
+    return;
+  }
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = '送信中...';
 
@@ -298,7 +343,8 @@ document.getElementById('proposalForm').addEventListener('submit', async (e) => 
     period = (s || '未定') + '〜' + (en || '未定');
   }
 
-  await post('submitProposal', {
+  let res;
+  try { res = await post('submitProposal', {
     dealerKey: DEALER_KEY,
     dealerName: DEALER_NAME,
     type: currentType,
@@ -314,10 +360,14 @@ document.getElementById('proposalForm').addEventListener('submit', async (e) => 
     period: period,
     url: document.getElementById('url').value,
     imageBase64: imageBase64,
-    imageName: document.getElementById('imageFile').files[0]?.name || ''
-  });
+    imageName: imageBase64 ? ((document.getElementById('imageFile').files[0]?.name || 'image').replace(/\.[^.]+$/, '') + '.jpg') : ''
+  }); } catch (err) { res = { success:false, error:'通信に失敗しました' }; }
 
   btn.disabled = false; btn.textContent = 'この内容で提案する';
+  if (!res || !res.success){
+    alert('送信に失敗しました。' + (res && res.error ? '\n' + res.error : '') + '\n\n入力内容は消えていません。もう一度お試しください。');
+    return;
+  }
   document.getElementById('notice').style.display = 'block';
   document.getElementById('proposalForm').reset();
   document.getElementById('imgPreview').style.display = 'none';
@@ -361,8 +411,9 @@ function renderProposalCard(p){
 
 async function loadStatusList(){
   const res = await jsonp('listForDealer', { dealerKey: DEALER_KEY });
-  const list = (res.proposals || []).filter(p => p.type === '提案' && p.status !== '決定' && p.status !== '見送り');
   const area = document.getElementById('statusArea');
+  if (!res.success){ area.innerHTML = errorBoxHtml(res.error); return; }
+  const list = (res.proposals || []).filter(p => p.type === '提案' && p.status !== '決定' && p.status !== '見送り');
   if (list.length === 0){
     area.innerHTML = '<div class="empty">現在、判断待ちの提案はありません。</div>';
     return;
@@ -377,8 +428,9 @@ function isFinished(p){
 
 async function loadList(){
   const res = await jsonp('listForDealer', { dealerKey: DEALER_KEY });
-  const list = (res.proposals || []).filter(isFinished);
   const area = document.getElementById('listArea');
+  if (!res.success){ area.innerHTML = errorBoxHtml(res.error); return; }
+  const list = (res.proposals || []).filter(isFinished);
   if (list.length === 0){
     area.innerHTML = '<div class="empty">まだ結果が出た提案はありません。</div>';
     return;
